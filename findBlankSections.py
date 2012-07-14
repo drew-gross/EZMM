@@ -10,28 +10,29 @@ def display(image):
 def hLine(image, row, color=(0,0,255,0)):
     cv2.line(image, (0,row), (image.shape[1], row), color)
 
-def emptyRows2D(image):
-    return [not cv2.minMaxLoc(image[i])[0] < 50 for i in xrange(0, image.shape[0])]
+def rowIsEmpty(row):
+    return cv2.minMaxLoc(row)[0] > 50
 
-def largeBlankSections(image):
-    emptyrows = emptyRows2D(image)
+def largeSectionsWithProperty(image, sectionProperty):
+    rowsWithProperty = [sectionProperty(image[i]) for i in xrange(image.shape[0])]
     sections = []
     currentRowVal = None
-    for i in xrange(len(emptyrows)):
-        if emptyrows[i] != currentRowVal:
-            sections.append({'val':emptyrows[i], 'count':1, 'startpos':i})
-            currentRowVal = emptyrows[i]
+    for i in xrange(len(rowsWithProperty)):
+        if rowsWithProperty[i] != currentRowVal:
+            sections.append({'val':rowsWithProperty[i], 'count':1, 'startpos':i})
+            currentRowVal = rowsWithProperty[i]
         else:
             sections[-1]['count'] += 1
     trueSections = filter(itemgetter('val'), sections)
     minSecCount = max(trueSections, key=itemgetter('count'))['count']/10
     blankSections = filter(lambda sec: sec['count'] > minSecCount, trueSections)
     return blankSections
+    
 
 image = cv2.imread("""C:\Users\Drew Gross\Documents\Projects\EZMM\Test data\CHE101MS08N.jpg\page.jpg""")
 gray = cv2.cvtColor(image, cv2.cv.CV_BGR2GRAY)
 
-for obj in largeBlankSections(gray):
+for obj in largeSectionsWithProperty(gray, rowIsEmpty):
     for i in xrange(obj['startpos'], obj['startpos'] + obj['count']):
         hLine(image, i)
 

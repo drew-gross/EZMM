@@ -10,30 +10,58 @@ def display(image):
 def hLine(image, row, color=(0,0,255,0)):
     cv2.line(image, (0,row), (image.shape[1], row), color)
 
-def rowIsEmpty(row):
-    return cv2.minMaxLoc(row)[0] > 50
+def vLine(image, col, color=(0,0,255,0)):
+    cv2.line(image, (col, 0), (col, image.shape[0]), color)
 
-def largeSectionsWithProperty(image, sectionProperty):
-    rowsWithProperty = [sectionProperty(image[i]) for i in xrange(image.shape[0])]
+def rowFromSection(image, section):
+    return image[section['startpos']:section['count'] + section['startpos']]
+
+def colFromSection(image, section):
+    return image[:,section['startpos']:section['count'] + section['startpos']]
+
+def isEmpty(row):
+    return cv2.minMaxLoc(row)[0] > 25
+
+def rowsWithProperty(image, property):
+    return [property(image[i]) for i in xrange(image.shape[0])]
+
+def colsWithProperty(image, property):
+    return [property(image[:,i]) for i in xrange(image.shape[1])]
+
+def findTrueSections(array):
     sections = []
-    currentRowVal = None
-    for i in xrange(len(rowsWithProperty)):
-        if rowsWithProperty[i] != currentRowVal:
-            sections.append({'val':rowsWithProperty[i], 'count':1, 'startpos':i})
-            currentRowVal = rowsWithProperty[i]
+    currentVal = None
+    for index, val in enumerate(array):
+        if val != currentVal:
+            sections.append({'val':val, 'count':1, 'startpos':index})
+            currentVal = val
         else:
-            sections[-1]['count'] += 1
-    trueSections = filter(itemgetter('val'), sections)
+            sections[-1]['count'] += 1;
+    sectionsWithProperty = filter(itemgetter('val'), sections)
+    return sectionsWithProperty
+
+def largeRowsWithProperty(image, sectionProperty):
+    trueSections = rowsWithProperty(image, sectionProperty)
     minSecCount = max(trueSections, key=itemgetter('count'))['count']/10
-    blankSections = filter(lambda sec: sec['count'] > minSecCount, trueSections)
-    return blankSections
-    
+    return findTrueSections(rowHasProperty)
+
+def splitToRows(image):
+    grayImage = cv2.cvtColor(image, cv2.cv.CV_BGR2GRAY)
+    sections = findTrueSections(rowsWithProperty(grayImage, lambda x: not isEmpty(x)))
+    return map(lambda section: rowFromSection(image, section), sections)
+
+def splitToCols(image):
+    grayImage = cv2.cvtColor(image, cv2.cv.CV_BGR2GRAY)
+    sections = findTrueSections(colsWithProperty(grayImage, lambda x: not isEmpty(x)))
+    return map(lambda section: colFromSection(image, section), sections)
 
 image = cv2.imread("""C:\Users\Drew Gross\Documents\Projects\EZMM\Test data\CHE101MS08N.jpg\page.jpg""")
-gray = cv2.cvtColor(image, cv2.cv.CV_BGR2GRAY)
 
-for obj in largeSectionsWithProperty(gray, rowIsEmpty):
-    for i in xrange(obj['startpos'], obj['startpos'] + obj['count']):
-        hLine(image, i)
+letters = []
+rows = splitToRows(image)
+for row in rows:
+    cols = splitToCols(row)
+    for col in cols:
+        letters.append(col)
 
-cv2.imwrite('test.jpg', image)
+[cv2.imwrite(str(index) + '.jpg', row) for index, row in enumerate(letters)]
